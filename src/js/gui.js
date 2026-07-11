@@ -24,28 +24,9 @@ function addLayerControls(gui, params, uniforms, layer, prefix, folderName, rebu
 	});
 	folder.addColor(params, prefix + 'Color').name('颜色').onChange(function(value) {
 		const rgb = hexToRgb(value);
-		params[prefix + 'Red'] = rgb.r;
-		params[prefix + 'Green'] = rgb.g;
-		params[prefix + 'Blue'] = rgb.b;
 		uniforms[prefix + 'Red'].value = rgb.r;
 		uniforms[prefix + 'Green'].value = rgb.g;
 		uniforms[prefix + 'Blue'].value = rgb.b;
-		gui.updateDisplay();
-	});
-	folder.add(params, prefix + 'Red', 0, 1, 0.01).name('红').onChange(function() {
-		uniforms[prefix + 'Red'].value = params[prefix + 'Red'];
-		params[prefix + 'Color'] = rgbToHex(params[prefix + 'Red'], params[prefix + 'Green'], params[prefix + 'Blue']);
-		gui.updateDisplay();
-	});
-	folder.add(params, prefix + 'Green', 0, 1, 0.01).name('绿').onChange(function() {
-		uniforms[prefix + 'Green'].value = params[prefix + 'Green'];
-		params[prefix + 'Color'] = rgbToHex(params[prefix + 'Red'], params[prefix + 'Green'], params[prefix + 'Blue']);
-		gui.updateDisplay();
-	});
-	folder.add(params, prefix + 'Blue', 0, 1, 0.01).name('蓝').onChange(function() {
-		uniforms[prefix + 'Blue'].value = params[prefix + 'Blue'];
-		params[prefix + 'Color'] = rgbToHex(params[prefix + 'Red'], params[prefix + 'Green'], params[prefix + 'Blue']);
-		gui.updateDisplay();
 	});
 
 	if (extraControls) {
