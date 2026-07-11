@@ -135,7 +135,6 @@ export function createCircularBars(params) {
 		bar.position.x = Math.cos(angle) * radius;
 		bar.position.z = Math.sin(angle) * radius;
 		bar.position.y = 0;
-		bar.lookAt(0, 0, 0);
 		bar.scale.y = 0.01;
 		group.add(bar);
 	}
