@@ -254,31 +254,43 @@ const sound = new THREE.Audio(listener);
 let builtinBuffer = null;
 let mediaStream = null;
 let currentSource = 'builtin';
+let isPlaying = false;
 
 const audioLoader = new THREE.AudioLoader();
 audioLoader.load('./assets/Beats.mp3', function(buffer) {
 	builtinBuffer = buffer;
 	sound.setBuffer(buffer);
-	window.addEventListener('click', function() {
-		sound.play();
-	});
 });
 
 const analyser = new THREE.AudioAnalyser(sound, 32);
 
-async function switchToSystemAudio() {
-	try {
-		mediaStream = await navigator.mediaDevices.getDisplayMedia({
-			audio: true,
-			video: false
+function togglePlayback() {
+	if (currentSource !== 'builtin') return;
+	if (isPlaying) {
+		sound.pause();
+	} else {
+		sound.play();
+	}
+	isPlaying = !isPlaying;
+}
+
+function switchToSystemAudio() {
+	navigator.mediaDevices.getDisplayMedia({
+		audio: true,
+		video: true
+	}).then(function(stream) {
+		stream.getVideoTracks().forEach(function(track) {
+			track.enabled = false;
 		});
+		mediaStream = stream;
 		sound.stop();
 		sound.disconnect();
-		sound.setMediaStreamSource(mediaStream);
+		sound.setMediaStreamSource(stream);
 		currentSource = 'system';
-	} catch (err) {
+		isPlaying = false;
+	}).catch(function(err) {
 		console.error('System audio capture failed:', err);
-	}
+	});
 }
 
 function switchToBuiltinAudio() {
@@ -291,6 +303,7 @@ function switchToBuiltinAudio() {
 	if (builtinBuffer) {
 		sound.setBuffer(builtinBuffer);
 		sound.play();
+		isPlaying = true;
 	}
 	currentSource = 'builtin';
 }
@@ -302,8 +315,9 @@ let lastTime = performance.now();
 const gui = new GUI();
 
 const audioSourceFolder = gui.addFolder('Audio Source');
-audioSourceFolder.add({switchToBuiltin: switchToBuiltinAudio}, 'switchToBuiltin').name('内置音频');
-audioSourceFolder.add({switchToSystem: switchToSystemAudio}, 'switchToSystem').name('系统音频');
+audioSourceFolder.add({toggle: togglePlayback}, 'toggle').name('播放/暂停');
+audioSourceFolder.add({builtin: switchToBuiltinAudio}, 'builtin').name('内置音频');
+audioSourceFolder.add({system: switchToSystemAudio}, 'system').name('系统音频');
 
 const geometryFolder = gui.addFolder('Geometry');
 geometryFolder.add(params, 'detail', 1, 50, 1).name('细分级别').onChange(function(value) {
