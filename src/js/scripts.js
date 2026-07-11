@@ -152,7 +152,7 @@ const params = {
 	blue: 1.0,
 	color: '#ffffff',
 	threshold: 0.5,
-	strength: 0.5,
+	strength: 0.1,
 	radius: 0.8,
 	detail: 30,
 	wireframe: true,
@@ -221,7 +221,7 @@ function rebuildGeometry(detail) {
 
 function setWireframe(enabled) {
 	mesh.visible = enabled;
-	points.visible = !enabled;
+	points.visible = true;
 }
 
 function hexToRgb(hex) {
@@ -310,7 +310,7 @@ const bloomFolder = gui.addFolder('Bloom');
 bloomFolder.add(params, 'threshold', 0, 1, 0.01).onChange(function(value) {
 	bloomPass.threshold = Number(value);
 });
-bloomFolder.add(params, 'strength', 0, 2, 0.01).onChange(function(value) {
+bloomFolder.add(params, 'strength', 0, 1, 0.01).onChange(function(value) {
 	bloomPass.strength = Number(value);
 });
 bloomFolder.add(params, 'radius', 0, 1, 0.01).onChange(function(value) {
