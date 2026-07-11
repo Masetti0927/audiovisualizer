@@ -133,8 +133,9 @@ export function createCircularBars(params) {
 		const bar = new THREE.Mesh(barGeo, barMat);
 		const angle = (i / barCount) * Math.PI * 2;
 		bar.position.x = Math.cos(angle) * radius;
-		bar.position.z = Math.sin(angle) * radius;
-		bar.position.y = 0;
+		bar.position.y = Math.sin(angle) * radius;
+		bar.position.z = 0;
+		bar.rotation.z = angle - Math.PI / 2;
 		bar.scale.y = 0.01;
 		group.add(bar);
 	}
