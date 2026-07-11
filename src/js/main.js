@@ -38,7 +38,9 @@ const params = {
 	rayLength: 2.0,
 	rayThreshold: 0.3,
 	rayStyle: '细线',
-	rayThickness: 0.02
+	rayThickness: 0.02,
+	deflectionSpeed: 1.0,
+	deflectionAmount: 0.2
 };
 
 const renderer = createRenderer();
@@ -62,7 +64,9 @@ const uniforms = {
 	u_glowColor: {value: new THREE.Color(params.innerGlowColor)},
 	u_glowIntensity: {value: params.innerGlowIntensity},
 	u_rayLength: {value: params.rayLength},
-	u_rayThreshold: {value: params.rayThreshold}
+	u_rayThreshold: {value: params.rayThreshold},
+	u_deflectionSpeed: {value: params.deflectionSpeed},
+	u_deflectionAmount: {value: params.deflectionAmount}
 };
 
 const {meshMat, pointsMat} = createMaterials(uniforms, vertexShader, fragmentShaderSimple, fragmentShaderPoints);

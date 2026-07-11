@@ -97,11 +97,15 @@ export const vertexShader = `
   uniform float u_frequency;
   uniform float u_sensitivity;
   uniform float u_pointSize;
+  uniform float u_deflectionSpeed;
+  uniform float u_deflectionAmount;
 
   void main() {
       float noise = 3.0 * pnoise(position + u_time, vec3(10.0));
       float displacement = (u_frequency * u_sensitivity / 100.) * (noise / 10.);
-      vec3 newPosition = position + normal * displacement;
+      float deflection = pnoise(position * 5.0 + u_time * u_deflectionSpeed, vec3(100.0));
+      vec3 deflectionOffset = normal * deflection * u_deflectionAmount;
+      vec3 newPosition = position + normal * displacement + deflectionOffset;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
       gl_PointSize = u_pointSize;
   }
@@ -156,6 +160,8 @@ export const outerVertexShader = `
   uniform float u_frequency;
   uniform float u_sensitivity;
   uniform float u_outerPointSize;
+  uniform float u_deflectionSpeed;
+  uniform float u_deflectionAmount;
 
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -204,7 +210,10 @@ export const outerVertexShader = `
   }
 
   void main() {
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      float deflection = pnoise(position * 5.0 + u_time * u_deflectionSpeed, vec3(100.0));
+      vec3 deflectionOffset = normal * deflection * u_deflectionAmount;
+      vec3 newPos = position + deflectionOffset;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
       gl_PointSize = u_outerPointSize;
   }
 `;
@@ -238,6 +247,8 @@ export const rayVertexShader = `
   uniform float u_rayLength;
   uniform float u_sensitivity;
   uniform float u_rayThreshold;
+  uniform float u_deflectionSpeed;
+  uniform float u_deflectionAmount;
 
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
   vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -286,7 +297,9 @@ export const rayVertexShader = `
   }
 
   void main() {
-      vec3 pos = position;
+      float deflection = pnoise(position * 5.0 + u_time * u_deflectionSpeed, vec3(100.0));
+      vec3 deflectionOffset = a_rayDir * deflection * u_deflectionAmount;
+      vec3 pos = position + deflectionOffset;
       if (a_isTip > 0.5) {
           float noise = 3.0 * pnoise(position + u_time, vec3(10.0));
           float displacement = (u_frequency * u_sensitivity / 100.) * (noise / 10.);
