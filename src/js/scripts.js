@@ -289,7 +289,7 @@ function switchToSystemAudio() {
 		sound.disconnect();
 		sound.setMediaStreamSource(stream);
 		if (!params.systemPlaythrough) {
-			sound.gain.disconnect();
+			sound.gain.disconnect(sound.context.destination);
 		}
 		currentSource = 'system';
 		isPlaying = false;
@@ -318,7 +318,7 @@ function toggleSystemPlaythrough(enabled) {
 	if (enabled) {
 		sound.gain.connect(sound.context.destination);
 	} else {
-		sound.gain.disconnect();
+		sound.gain.disconnect(sound.context.destination);
 	}
 }
 
