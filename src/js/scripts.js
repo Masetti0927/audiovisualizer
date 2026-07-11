@@ -103,10 +103,11 @@ const vertexShader = `
   }
 
   uniform float u_frequency;
+  uniform float u_sensitivity;
 
   void main() {
       float noise = 3.0 * pnoise(position + u_time, vec3(10.0));
-      float displacement = (u_frequency / 30.) * (noise / 10.);
+      float displacement = (u_frequency * u_sensitivity / 100.) * (noise / 10.);
       vec3 newPosition = position + normal * displacement;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
   }
@@ -124,7 +125,6 @@ const fragmentShader = `
 const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
-//renderer.setClearColor(0x222222);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -140,7 +140,12 @@ const params = {
 	blue: 1.0,
 	threshold: 0.5,
 	strength: 0.5,
-	radius: 0.8
+	radius: 0.8,
+	detail: 30,
+	wireframe: true,
+	sensitivity: 50,
+	smoothing: 0.5,
+	noiseSpeed: 1.0
 }
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -165,6 +170,7 @@ camera.lookAt(0, 0, 0);
 const uniforms = {
 	u_time: {value: 0.0},
 	u_frequency: {value: 0.0},
+	u_sensitivity: {value: params.sensitivity},
 	u_red: {value: 1.0},
 	u_green: {value: 1.0},
 	u_blue: {value: 1.0}
@@ -176,10 +182,10 @@ const mat = new THREE.ShaderMaterial({
 	fragmentShader
 });
 
-const geo = new THREE.IcosahedronGeometry(4, 30 );
+const geo = new THREE.IcosahedronGeometry(4, params.detail);
 const mesh = new THREE.Mesh(geo, mat);
 scene.add(mesh);
-mesh.material.wireframe = true;
+mesh.material.wireframe = params.wireframe;
 
 const listener = new THREE.AudioListener();
 camera.add(listener);
@@ -196,7 +202,29 @@ audioLoader.load('./assets/Beats.mp3', function(buffer) {
 
 const analyser = new THREE.AudioAnalyser(sound, 32);
 
+let smoothedFrequency = 0;
+let elapsedTime = 0;
+let lastTime = performance.now();
+
 const gui = new GUI();
+
+const geometryFolder = gui.addFolder('Geometry');
+geometryFolder.add(params, 'detail', 1, 50, 1).name('细分级别').onChange(function(value) {
+	mesh.geometry.dispose();
+	mesh.geometry = new THREE.IcosahedronGeometry(4, value);
+});
+geometryFolder.add(params, 'wireframe').name('线框显示').onChange(function(value) {
+	mesh.material.wireframe = value;
+});
+
+const audioFolder = gui.addFolder('Audio');
+audioFolder.add(params, 'sensitivity', 0, 100).name('灵敏度').onChange(function(value) {
+	uniforms.u_sensitivity.value = value;
+});
+audioFolder.add(params, 'smoothing', 0, 0.99).name('平滑度');
+
+const noiseFolder = gui.addFolder('Noise');
+noiseFolder.add(params, 'noiseSpeed', 0, 5).name('速度');
 
 const colorsFolder = gui.addFolder('Colors');
 colorsFolder.add(params, 'red', 0, 1).onChange(function(value) {
@@ -229,21 +257,31 @@ document.addEventListener('mousemove', function(e) {
 	mouseY = (e.clientY - windowHalfY) / 100;
 });
 
-const clock = new THREE.Clock();
 function animate() {
+	const now = performance.now();
+	const delta = (now - lastTime) / 1000;
+	lastTime = now;
+
+	elapsedTime += delta * params.noiseSpeed;
+
 	camera.position.x += (mouseX - camera.position.x) * .05;
 	camera.position.y += (-mouseY - camera.position.y) * 0.5;
 	camera.lookAt(scene.position);
-	uniforms.u_time.value = clock.getElapsedTime();
-	uniforms.u_frequency.value = analyser.getAverageFrequency();
-    bloomComposer.render();
+
+	uniforms.u_time.value = elapsedTime;
+
+	const rawFrequency = analyser.getAverageFrequency();
+	smoothedFrequency += (rawFrequency - smoothedFrequency) * (1 - params.smoothing);
+	uniforms.u_frequency.value = smoothedFrequency;
+
+	bloomComposer.render();
 	requestAnimationFrame(animate);
 }
 animate();
 
 window.addEventListener('resize', function() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(window.innerWidth, window.innerHeight);
 	bloomComposer.setSize(window.innerWidth, window.innerHeight);
 });
