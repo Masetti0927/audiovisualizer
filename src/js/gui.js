@@ -149,12 +149,7 @@ export function createGUI(params, uniforms, deps) {
 
 	const noiseFolder = gui.addFolder('噪声');
 	noiseFolder.add(params, 'noiseSpeed', 1, 5, 0.1).name('速度');
-	noiseFolder.add(params, 'deflectionSpeed', 0, 5, 0.1).name('偏转速度').onChange(function(value) {
-		uniforms.u_deflectionSpeed.value = value;
-	});
-	noiseFolder.add(params, 'deflectionAmount', 0, 1, 0.01).name('偏转幅度').onChange(function(value) {
-		uniforms.u_deflectionAmount.value = value;
-	});
+	noiseFolder.add(params, 'rotationSpeed', 0, 3, 0.1).name('旋转速度');
 
 	const bloomFolder = gui.addFolder('泛光');
 	bloomFolder.add(params, 'threshold', 0, 1, 0.01).name('阈值').onChange(function(value) {

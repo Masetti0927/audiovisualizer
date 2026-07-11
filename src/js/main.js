@@ -39,8 +39,7 @@ const params = {
 	rayThreshold: 0.3,
 	rayStyle: '细线',
 	rayThickness: 0.02,
-	deflectionSpeed: 1.0,
-	deflectionAmount: 0.2
+	rotationSpeed: 0.5
 };
 
 const renderer = createRenderer();
@@ -64,9 +63,7 @@ const uniforms = {
 	u_glowColor: {value: new THREE.Color(params.innerGlowColor)},
 	u_glowIntensity: {value: params.innerGlowIntensity},
 	u_rayLength: {value: params.rayLength},
-	u_rayThreshold: {value: params.rayThreshold},
-	u_deflectionSpeed: {value: params.deflectionSpeed},
-	u_deflectionAmount: {value: params.deflectionAmount}
+	u_rayThreshold: {value: params.rayThreshold}
 };
 
 const {meshMat, pointsMat} = createMaterials(uniforms, vertexShader, fragmentShaderSimple, fragmentShaderPoints);
@@ -84,6 +81,10 @@ scene.add(outerLayer.outerMesh);
 scene.add(outerLayer.outerPoints);
 scene.add(outerLayer.rayLines);
 scene.add(outerLayer.rayCylinders);
+
+const innerRotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+const middleRotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+const outerRotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
 
 const listener = new THREE.AudioListener();
 camera.add(listener);
@@ -135,6 +136,15 @@ function animate() {
 
 	uniforms.u_time.value = elapsedTime;
 	uniforms.u_frequency.value = audio.getFrequency();
+
+	const angle = delta * params.rotationSpeed;
+	mesh.rotateOnAxis(middleRotationAxis, angle);
+	points.rotateOnAxis(middleRotationAxis, angle);
+	outerLayer.outerMesh.rotateOnAxis(outerRotationAxis, angle);
+	outerLayer.outerPoints.rotateOnAxis(outerRotationAxis, angle);
+	outerLayer.rayLines.rotateOnAxis(outerRotationAxis, angle);
+	outerLayer.rayCylinders.rotateOnAxis(outerRotationAxis, angle);
+	innerSphere.mesh.rotateOnAxis(innerRotationAxis, angle);
 
 	bloomComposer.render();
 	requestAnimationFrame(animate);

@@ -113,9 +113,7 @@ export function createOuterLayer(params, uniforms, outerVertexShader, outerWiref
 		u_outerPointSize: uniforms.u_outerPointSize,
 		u_outerRed: uniforms.u_outerRed,
 		u_outerGreen: uniforms.u_outerGreen,
-		u_outerBlue: uniforms.u_outerBlue,
-		u_deflectionSpeed: uniforms.u_deflectionSpeed,
-		u_deflectionAmount: uniforms.u_deflectionAmount
+		u_outerBlue: uniforms.u_outerBlue
 	};
 
 	const outerMeshMat = new THREE.ShaderMaterial({
@@ -187,9 +185,7 @@ function buildRayGeometry(geo, uniforms, rayVertexShader, rayFragmentShader, par
 		u_frequency: uniforms.u_frequency,
 		u_sensitivity: uniforms.u_sensitivity,
 		u_rayLength: uniforms.u_rayLength,
-		u_rayThreshold: uniforms.u_rayThreshold,
-		u_deflectionSpeed: uniforms.u_deflectionSpeed,
-		u_deflectionAmount: uniforms.u_deflectionAmount
+		u_rayThreshold: uniforms.u_rayThreshold
 	};
 
 	const rayMat = new THREE.ShaderMaterial({
@@ -245,8 +241,6 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 		uniform float u_sensitivity;
 		uniform float u_rayLength;
 		uniform float u_rayThreshold;
-		uniform float u_deflectionSpeed;
-		uniform float u_deflectionAmount;
 		varying vec3 vNormal;
 
 		vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -296,10 +290,7 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 		}
 
 		void main() {
-			float deflection = pnoise(a_offset * 5.0 + u_time * u_deflectionSpeed, vec3(100.0));
-			vec3 deflectionOffset = normalize(a_direction) * deflection * u_deflectionAmount;
-			vec3 offsetPos = a_offset + deflectionOffset;
-			float noise = 3.0 * pnoise(offsetPos + u_time, vec3(10.0));
+			float noise = 3.0 * pnoise(a_offset + u_time, vec3(10.0));
 			float displacement = (u_frequency * u_sensitivity / 100.) * (noise / 10.);
 			float activated = step(u_rayThreshold, abs(displacement));
 			float len = displacement * u_rayLength * 10.0 * activated;
@@ -311,7 +302,7 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 			up = cross(dir, right);
 			mat3 rot = mat3(right, up, dir);
 			vec3 scaledPos = position * vec3(1.0, 1.0, len);
-			vec3 worldPos = rot * scaledPos + offsetPos;
+			vec3 worldPos = rot * scaledPos + a_offset;
 			vNormal = normalize(normalMatrix * normal);
 			gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
 		}
@@ -325,9 +316,7 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 		u_frequency: uniforms.u_frequency,
 		u_sensitivity: uniforms.u_sensitivity,
 		u_rayLength: uniforms.u_rayLength,
-		u_rayThreshold: uniforms.u_rayThreshold,
-		u_deflectionSpeed: uniforms.u_deflectionSpeed,
-		u_deflectionAmount: uniforms.u_deflectionAmount
+		u_rayThreshold: uniforms.u_rayThreshold
 	};
 
 	const thickRayMat = new THREE.ShaderMaterial({
