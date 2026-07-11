@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import {vertexShader, fragmentShader, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader, rayVertexShader, rayFragmentShader} from './shaders.js';
-import {createRenderer, createScene, createCamera, createBloom, createLayer, rebuildLayer, createInnerGlow, createRays, rebuildRays, createRotationState, updateRotation} from './scene.js';
+import {vertexShader, fragmentShader, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader} from './shaders.js';
+import {createRenderer, createScene, createCamera, createBloom, createLayer, rebuildLayer, createInnerGlow, createCircularBars, updateCircularBars, createRotationState, updateRotation} from './scene.js';
 import {createAudioSystem} from './audio.js';
 import {createGUI} from './gui.js';
 
@@ -17,6 +17,7 @@ const params = {
 	innerBlue: 1.0,
 	innerGlow: true,
 	innerGlowIntensity: 1.0,
+	innerAudioEnabled: true,
 
 	middleVisible: true,
 	middleRadius: 4,
@@ -28,6 +29,7 @@ const params = {
 	middleRed: 0.0,
 	middleGreen: 0.93,
 	middleBlue: 1.0,
+	middleAudioEnabled: true,
 
 	outerVisible: true,
 	outerRadius: 5,
@@ -39,11 +41,13 @@ const params = {
 	outerRed: 0.53,
 	outerGreen: 0.87,
 	outerBlue: 1.0,
-	outerRays: true,
-	outerRayLength: 2.0,
-	outerRayThreshold: 0.3,
-	outerRayStyle: '细线',
-	outerRayThickness: 0.02,
+	outerAudioEnabled: false,
+
+	circularBars: true,
+	circularBarCount: 128,
+	circularBarRadius: 6.5,
+	circularBarHeight: 2.0,
+	circularBarColor: '#00eeff',
 
 	rotationSpeed: 0.5,
 	rotationInterval: 3,
@@ -70,21 +74,22 @@ const uniforms = {
 	u_frequency: {value: 0.0},
 	u_sensitivity: {value: params.sensitivity},
 	innerPointSize: {value: params.innerPointSize},
+	innerAudioEnabled: {value: params.innerAudioEnabled ? 1.0 : 0.0},
 	innerRed: {value: params.innerRed},
 	innerGreen: {value: params.innerGreen},
 	innerBlue: {value: params.innerBlue},
 	middlePointSize: {value: params.middlePointSize},
+	middleAudioEnabled: {value: params.middleAudioEnabled ? 1.0 : 0.0},
 	middleRed: {value: params.middleRed},
 	middleGreen: {value: params.middleGreen},
 	middleBlue: {value: params.middleBlue},
 	outerPointSize: {value: params.outerPointSize},
+	outerAudioEnabled: {value: params.outerAudioEnabled ? 1.0 : 0.0},
 	outerRed: {value: params.outerRed},
 	outerGreen: {value: params.outerGreen},
 	outerBlue: {value: params.outerBlue},
 	u_glowColor: {value: new THREE.Color(params.innerGlowColor)},
-	u_glowIntensity: {value: params.innerGlowIntensity},
-	u_rayLength: {value: params.outerRayLength},
-	u_rayThreshold: {value: params.outerRayThreshold}
+	u_glowIntensity: {value: params.innerGlowIntensity}
 };
 
 const innerLayer = createLayer(params, uniforms, 'inner', vertexShader, fragmentShader, fragmentShaderPoints);
@@ -102,9 +107,8 @@ const outerLayer = createLayer(params, uniforms, 'outer', vertexShader, fragment
 scene.add(outerLayer.mesh);
 scene.add(outerLayer.points);
 
-const rays = createRays(params, uniforms, rayVertexShader, rayFragmentShader);
-scene.add(rays.rayLines);
-scene.add(rays.rayCylinders);
+const circularBars = createCircularBars(params);
+scene.add(circularBars);
 
 const innerRotation = createRotationState();
 const middleRotation = createRotationState();
@@ -121,17 +125,16 @@ const gui = createGUI(params, uniforms, {
 	middleLayer,
 	outerLayer,
 	innerGlow,
-	rays,
+	circularBars,
 	bloomPass,
 	listener,
 	audio,
 	rebuildLayer,
-	rebuildRays: function() {
-		scene.remove(rays.rayLines);
-		scene.remove(rays.rayCylinders);
-		rebuildRays(rays, params, uniforms, rayVertexShader, rayFragmentShader);
-		scene.add(rays.rayLines);
-		scene.add(rays.rayCylinders);
+	rebuildCircularBars: function() {
+		scene.remove(circularBars);
+		const newBars = createCircularBars(params);
+		scene.add(newBars);
+		return newBars;
 	}
 });
 
@@ -161,6 +164,8 @@ function animate() {
 	uniforms.u_time.value = elapsedTime;
 	uniforms.u_frequency.value = audio.getFrequency();
 
+	updateCircularBars(circularBars, audio.analyser, params);
+
 	const innerAngle = updateRotation(innerRotation, delta, params.rotationSpeed, params.rotationInterval, params.rotationSmoothness);
 	innerLayer.mesh.rotateOnAxis(innerRotation.currentAxis, innerAngle);
 	innerLayer.points.rotateOnAxis(innerRotation.currentAxis, innerAngle);
@@ -173,8 +178,6 @@ function animate() {
 	const outerAngle = updateRotation(outerRotation, delta, params.rotationSpeed, params.rotationInterval, params.rotationSmoothness);
 	outerLayer.mesh.rotateOnAxis(outerRotation.currentAxis, outerAngle);
 	outerLayer.points.rotateOnAxis(outerRotation.currentAxis, outerAngle);
-	rays.rayLines.rotateOnAxis(outerRotation.currentAxis, outerAngle);
-	rays.rayCylinders.rotateOnAxis(outerRotation.currentAxis, outerAngle);
 
 	bloomComposer.render();
 	requestAnimationFrame(animate);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GUI} from 'lil-gui';
-import {hexToRgb, rgbToHex} from './utils.js';
+import {hexToRgb} from './utils.js';
 
 function addLayerControls(gui, params, uniforms, layer, prefix, folderName, rebuildLayer, extraControls) {
 	const folder = gui.addFolder(folderName);
@@ -28,6 +28,9 @@ function addLayerControls(gui, params, uniforms, layer, prefix, folderName, rebu
 		uniforms[prefix + 'Green'].value = rgb.g;
 		uniforms[prefix + 'Blue'].value = rgb.b;
 	});
+	folder.add(params, prefix + 'AudioEnabled').name('音频反应').onChange(function(value) {
+		uniforms[prefix + 'AudioEnabled'].value = value ? 1.0 : 0.0;
+	});
 
 	if (extraControls) {
 		extraControls(folder);
@@ -39,9 +42,9 @@ function addLayerControls(gui, params, uniforms, layer, prefix, folderName, rebu
 export function createGUI(params, uniforms, deps) {
 	const {
 		innerLayer, middleLayer, outerLayer,
-		innerGlow, rays, bloomPass,
+		innerGlow, circularBars, bloomPass,
 		listener, audio,
-		rebuildLayer, rebuildRays
+		rebuildLayer, rebuildCircularBars
 	} = deps;
 
 	const gui = new GUI();
@@ -65,23 +68,22 @@ export function createGUI(params, uniforms, deps) {
 
 	addLayerControls(gui, params, uniforms, middleLayer, 'middle', '中层', rebuildLayer);
 
-	addLayerControls(gui, params, uniforms, outerLayer, 'outer', '外层', rebuildLayer, function(folder) {
-		folder.add(params, 'outerRays').name('射线显示').onChange(function(value) {
-			rays.rayLines.visible = value && params.outerRayStyle === '细线';
-			rays.rayCylinders.visible = value && params.outerRayStyle === '粗线';
-		});
-		folder.add(params, 'outerRayLength', 0, 10, 0.1).name('射线长度').onChange(function(value) {
-			uniforms.u_rayLength.value = value;
-		});
-		folder.add(params, 'outerRayThreshold', 0, 1, 0.01).name('射线阈值').onChange(function(value) {
-			uniforms.u_rayThreshold.value = value;
-		});
-		folder.add(params, 'outerRayStyle', ['细线', '粗线']).name('射线样式').onChange(function(value) {
-			rays.rayLines.visible = params.outerRays && value === '细线';
-			rays.rayCylinders.visible = params.outerRays && value === '粗线';
-		});
-		folder.add(params, 'outerRayThickness', 0.01, 0.1, 0.001).name('射线粗细').onChange(function() {
-			rebuildRays();
+	addLayerControls(gui, params, uniforms, outerLayer, 'outer', '外层', rebuildLayer);
+
+	const circularFolder = gui.addFolder('环形频谱');
+	circularFolder.add(params, 'circularBars').name('显示').onChange(function(value) {
+		circularBars.visible = value;
+	});
+	circularFolder.add(params, 'circularBarCount', 32, 256, 8).name('频段数量').onChange(function() {
+		rebuildCircularBars();
+	});
+	circularFolder.add(params, 'circularBarRadius', 5, 10, 0.1).name('半径').onChange(function() {
+		rebuildCircularBars();
+	});
+	circularFolder.add(params, 'circularBarHeight', 0.5, 5, 0.1).name('高度');
+	circularFolder.addColor(params, 'circularBarColor').name('颜色').onChange(function(value) {
+		circularBars.children.forEach(function(bar) {
+			bar.material.color.set(value);
 		});
 	});
 
