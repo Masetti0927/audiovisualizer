@@ -150,13 +150,14 @@ const params = {
 	red: 1.0,
 	green: 1.0,
 	blue: 1.0,
+	color: '#ffffff',
 	threshold: 0.5,
 	strength: 0.5,
 	radius: 0.8,
 	detail: 30,
 	wireframe: true,
 	pointSize: 3.0,
-	sensitivity: 50,
+	sensitivity: 3,
 	smoothing: 0.5,
 	noiseSpeed: 1.0
 }
@@ -223,6 +224,27 @@ function setWireframe(enabled) {
 	points.visible = !enabled;
 }
 
+function hexToRgb(hex) {
+	const r = parseInt(hex.slice(1, 3), 16) / 255;
+	const g = parseInt(hex.slice(3, 5), 16) / 255;
+	const b = parseInt(hex.slice(5, 7), 16) / 255;
+	return {r, g, b};
+}
+
+function rgbToHex(r, g, b) {
+	return '#' + [r, g, b].map(function(v) {
+		return Math.round(v * 255).toString(16).padStart(2, '0');
+	}).join('');
+}
+
+function syncColorFromRgb() {
+	params.color = rgbToHex(params.red, params.green, params.blue);
+	uniforms.u_red.value = params.red;
+	uniforms.u_green.value = params.green;
+	uniforms.u_blue.value = params.blue;
+	gui.updateDisplay();
+}
+
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
@@ -256,23 +278,32 @@ geometryFolder.add(params, 'pointSize', 1, 10, 0.5).name('点大小').onChange(f
 });
 
 const audioFolder = gui.addFolder('Audio');
-audioFolder.add(params, 'sensitivity', 0, 100, 1).name('灵敏度').onChange(function(value) {
+audioFolder.add(params, 'sensitivity', 1, 10, 0.1).name('灵敏度').onChange(function(value) {
 	uniforms.u_sensitivity.value = value;
 });
 audioFolder.add(params, 'smoothing', 0, 0.95, 0.01).name('平滑度');
 
 const noiseFolder = gui.addFolder('Noise');
-noiseFolder.add(params, 'noiseSpeed', 0, 3, 0.1).name('速度');
+noiseFolder.add(params, 'noiseSpeed', 1, 5, 0.1).name('速度');
 
 const colorsFolder = gui.addFolder('Colors');
-colorsFolder.add(params, 'red', 0, 1, 0.01).onChange(function(value) {
-	uniforms.u_red.value = Number(value);
+colorsFolder.addColor(params, 'color').name('颜色').onChange(function(value) {
+	const rgb = hexToRgb(value);
+	params.red = rgb.r;
+	params.green = rgb.g;
+	params.blue = rgb.b;
+	uniforms.u_red.value = rgb.r;
+	uniforms.u_green.value = rgb.g;
+	uniforms.u_blue.value = rgb.b;
 });
-colorsFolder.add(params, 'green', 0, 1, 0.01).onChange(function(value) {
-	uniforms.u_green.value = Number(value);
+colorsFolder.add(params, 'red', 0, 1, 0.01).name('R').onChange(function() {
+	syncColorFromRgb();
 });
-colorsFolder.add(params, 'blue', 0, 1, 0.01).onChange(function(value) {
-	uniforms.u_blue.value = Number(value);
+colorsFolder.add(params, 'green', 0, 1, 0.01).name('G').onChange(function() {
+	syncColorFromRgb();
+});
+colorsFolder.add(params, 'blue', 0, 1, 0.01).name('B').onChange(function() {
+	syncColorFromRgb();
 });
 
 const bloomFolder = gui.addFolder('Bloom');
