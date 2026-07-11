@@ -107,7 +107,7 @@ const outerLayer = createLayer(params, uniforms, 'outer', vertexShader, fragment
 scene.add(outerLayer.mesh);
 scene.add(outerLayer.points);
 
-const circularBars = createCircularBars(params);
+let circularBars = createCircularBars(params);
 scene.add(circularBars);
 
 const innerRotation = createRotationState();
@@ -132,9 +132,9 @@ const gui = createGUI(params, uniforms, {
 	rebuildLayer,
 	rebuildCircularBars: function() {
 		scene.remove(circularBars);
-		const newBars = createCircularBars(params);
-		scene.add(newBars);
-		return newBars;
+		circularBars = createCircularBars(params);
+		scene.add(circularBars);
+		return circularBars;
 	}
 });
 

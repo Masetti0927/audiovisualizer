@@ -129,6 +129,18 @@ export function createCircularBars(params) {
 
 	const group = new THREE.Group();
 
+	// Create shuffled frequency mapping
+	const freqMapping = [];
+	for (let i = 0; i < barCount; i++) {
+		freqMapping.push(i);
+	}
+	// Fisher-Yates shuffle
+	for (let i = freqMapping.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[freqMapping[i], freqMapping[j]] = [freqMapping[j], freqMapping[i]];
+	}
+	group.userData.freqMapping = freqMapping;
+
 	for (let i = 0; i < barCount; i++) {
 		const bar = new THREE.Mesh(barGeo, barMat);
 		const angle = (i / barCount) * Math.PI * 2;
@@ -150,9 +162,10 @@ export function updateCircularBars(group, analyser, params) {
 	const freqData = analyser.getFrequencyData();
 	const barCount = group.children.length;
 	const maxBarHeight = params.circularBarHeight;
+	const freqMapping = group.userData.freqMapping;
 
 	for (let i = 0; i < barCount; i++) {
-		const freqIndex = Math.floor((i / barCount) * freqData.length * 0.75);
+		const freqIndex = Math.floor((freqMapping[i] / barCount) * freqData.length * 0.75);
 		const value = freqData[freqIndex] / 255;
 		const targetHeight = value * maxBarHeight + 0.01;
 		const bar = group.children[i];
