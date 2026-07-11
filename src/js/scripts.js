@@ -251,8 +251,13 @@ camera.add(listener);
 
 const sound = new THREE.Audio(listener);
 
+let builtinBuffer = null;
+let mediaStream = null;
+let currentSource = 'builtin';
+
 const audioLoader = new THREE.AudioLoader();
 audioLoader.load('./assets/Beats.mp3', function(buffer) {
+	builtinBuffer = buffer;
 	sound.setBuffer(buffer);
 	window.addEventListener('click', function() {
 		sound.play();
@@ -261,11 +266,44 @@ audioLoader.load('./assets/Beats.mp3', function(buffer) {
 
 const analyser = new THREE.AudioAnalyser(sound, 32);
 
+async function switchToSystemAudio() {
+	try {
+		mediaStream = await navigator.mediaDevices.getDisplayMedia({
+			audio: true,
+			video: false
+		});
+		sound.stop();
+		sound.disconnect();
+		sound.setMediaStreamSource(mediaStream);
+		currentSource = 'system';
+	} catch (err) {
+		console.error('System audio capture failed:', err);
+	}
+}
+
+function switchToBuiltinAudio() {
+	if (mediaStream) {
+		mediaStream.getTracks().forEach(function(track) { track.stop(); });
+		mediaStream = null;
+	}
+	sound.stop();
+	sound.disconnect();
+	if (builtinBuffer) {
+		sound.setBuffer(builtinBuffer);
+		sound.play();
+	}
+	currentSource = 'builtin';
+}
+
 let smoothedFrequency = 0;
 let elapsedTime = 0;
 let lastTime = performance.now();
 
 const gui = new GUI();
+
+const audioSourceFolder = gui.addFolder('Audio Source');
+audioSourceFolder.add({switchToBuiltin: switchToBuiltinAudio}, 'switchToBuiltin').name('内置音频');
+audioSourceFolder.add({switchToSystem: switchToSystemAudio}, 'switchToSystem').name('系统音频');
 
 const geometryFolder = gui.addFolder('Geometry');
 geometryFolder.add(params, 'detail', 1, 50, 1).name('细分级别').onChange(function(value) {
