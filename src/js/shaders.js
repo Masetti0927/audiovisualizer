@@ -126,3 +126,51 @@ export const fragmentShaderPoints = `
       gl_FragColor = vec4(vec3(u_red, u_green, u_blue), 1. );
   }
 `;
+
+export const innerGlowVertexShader = `
+  varying vec3 vNormal;
+  varying vec3 vWorldPosition;
+  void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+export const innerGlowFragmentShader = `
+  uniform vec3 u_glowColor;
+  uniform float u_glowIntensity;
+  varying vec3 vNormal;
+  varying vec3 vWorldPosition;
+  void main() {
+      vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+      float fresnel = pow(1.0 - abs(dot(vNormal, viewDir)), 2.0);
+      float intensity = fresnel * u_glowIntensity;
+      gl_FragColor = vec4(u_glowColor, intensity);
+  }
+`;
+
+export const rayVertexShader = `
+  attribute float a_isTip;
+  attribute vec3 a_rayDir;
+  uniform float u_frequency;
+  uniform float u_rayLength;
+  uniform float u_sensitivity;
+  void main() {
+      vec3 pos = position;
+      if (a_isTip > 0.5) {
+          pos += a_rayDir * u_frequency * u_sensitivity * u_rayLength / 100.0;
+      }
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`;
+
+export const rayFragmentShader = `
+  uniform float u_red;
+  uniform float u_green;
+  uniform float u_blue;
+  void main() {
+      gl_FragColor = vec4(u_red, u_green, u_blue, 1.0);
+  }
+`;

@@ -1,13 +1,71 @@
+import * as THREE from 'three';
 import {GUI} from 'lil-gui';
 import {hexToRgb, syncColorFromRgb} from './utils.js';
 
 export function createGUI(params, uniforms, deps) {
 	const {
 		mesh, points, bloomPass, listener,
-		audio, rebuildGeometry, setWireframe
+		audio, rebuildGeometry, setWireframe,
+		innerSphere, outerLayer, rebuildOuterLayer
 	} = deps;
 
 	const gui = new GUI();
+
+	const layersFolder = gui.addFolder('Layers');
+
+	layersFolder.add(params, 'innerGlowVisible').name('内层光球').onChange(function(value) {
+		innerSphere.mesh.visible = value;
+	});
+	layersFolder.add(params, 'innerGlowRadius', 1, 5, 0.1).name('光球半径').onChange(function(value) {
+		innerSphere.mesh.geometry.dispose();
+		innerSphere.mesh.geometry = new THREE.SphereGeometry(value, 32, 32);
+	});
+	layersFolder.add(params, 'innerGlowIntensity', 0, 2, 0.1).name('光球强度').onChange(function(value) {
+		uniforms.u_glowIntensity.value = value;
+	});
+	layersFolder.addColor(params, 'innerGlowColor').name('光球颜色').onChange(function(value) {
+		uniforms.u_glowColor.value.set(value);
+	});
+
+	layersFolder.add(params, 'outerVisible').name('外层显示').onChange(function(value) {
+		outerLayer.outerMesh.visible = value && params.outerWireframe;
+		outerLayer.outerPoints.visible = value;
+		outerLayer.rayLines.visible = value && params.rayVisible && params.rayStyle === 'thin';
+		outerLayer.rayCylinders.visible = value && params.rayVisible && params.rayStyle === 'thick';
+	});
+	layersFolder.add(params, 'outerRadius', 4.5, 8, 0.1).name('外层半径').onChange(function() {
+		rebuildOuterLayer();
+	});
+	layersFolder.add(params, 'outerDetail', 1, 50, 1).name('外层细分').onChange(function() {
+		rebuildOuterLayer();
+	});
+	layersFolder.add(params, 'outerWireframe').name('外层线框').onChange(function(value) {
+		outerLayer.outerMesh.visible = params.outerVisible && value;
+	});
+	layersFolder.addColor(params, 'outerColor').name('外层颜色').onChange(function(value) {
+		const rgb = hexToRgb(value);
+		outerLayer.outerMeshMat.uniforms.u_red.value = rgb.r;
+		outerLayer.outerMeshMat.uniforms.u_green.value = rgb.g;
+		outerLayer.outerMeshMat.uniforms.u_blue.value = rgb.b;
+		outerLayer.outerPointsMat.uniforms.u_red.value = rgb.r;
+		outerLayer.outerPointsMat.uniforms.u_green.value = rgb.g;
+		outerLayer.outerPointsMat.uniforms.u_blue.value = rgb.b;
+	});
+
+	layersFolder.add(params, 'rayVisible').name('射线显示').onChange(function(value) {
+		outerLayer.rayLines.visible = params.outerVisible && value && params.rayStyle === 'thin';
+		outerLayer.rayCylinders.visible = params.outerVisible && value && params.rayStyle === 'thick';
+	});
+	layersFolder.add(params, 'rayLength', 0, 10, 0.1).name('射线长度').onChange(function(value) {
+		uniforms.u_rayLength.value = value;
+	});
+	layersFolder.add(params, 'rayStyle', ['thin', 'thick']).name('射线样式').onChange(function(value) {
+		outerLayer.rayLines.visible = params.outerVisible && params.rayVisible && value === 'thin';
+		outerLayer.rayCylinders.visible = params.outerVisible && params.rayVisible && value === 'thick';
+	});
+	layersFolder.add(params, 'rayThickness', 0.01, 0.1, 0.001).name('射线粗细').onChange(function() {
+		rebuildOuterLayer();
+	});
 
 	const audioSourceFolder = gui.addFolder('Audio Source');
 	audioSourceFolder.add({toggle: audio.togglePlayback}, 'toggle').name('播放/暂停');

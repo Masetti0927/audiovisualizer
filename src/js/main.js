@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import {vertexShader, fragmentShaderSimple, fragmentShaderPoints} from './shaders.js';
-import {createRenderer, createScene, createCamera, createBloom, createMaterials, createGeometry, rebuildGeometry, setWireframe} from './scene.js';
+import {vertexShader, fragmentShaderSimple, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader, rayVertexShader, rayFragmentShader} from './shaders.js';
+import {createRenderer, createScene, createCamera, createBloom, createMaterials, createGeometry, rebuildGeometry, setWireframe, createInnerSphere, createOuterLayer, rebuildOuterLayer} from './scene.js';
 import {createAudioSystem} from './audio.js';
 import {createGUI} from './gui.js';
 
@@ -19,7 +19,20 @@ const params = {
 	sensitivity: 3,
 	smoothing: 0.5,
 	noiseSpeed: 1.0,
-	systemPlaythrough: false
+	systemPlaythrough: false,
+	innerGlowVisible: true,
+	innerGlowRadius: 3,
+	innerGlowIntensity: 1.0,
+	innerGlowColor: '#4488ff',
+	outerVisible: true,
+	outerRadius: 5,
+	outerDetail: 30,
+	outerWireframe: true,
+	outerColor: '#ff4488',
+	rayVisible: true,
+	rayLength: 2.0,
+	rayStyle: 'thin',
+	rayThickness: 0.02
 };
 
 const renderer = createRenderer();
@@ -35,7 +48,10 @@ const uniforms = {
 	u_pointSize: {value: params.pointSize},
 	u_red: {value: 1.0},
 	u_green: {value: 1.0},
-	u_blue: {value: 1.0}
+	u_blue: {value: 1.0},
+	u_glowColor: {value: new THREE.Color(params.innerGlowColor)},
+	u_glowIntensity: {value: params.innerGlowIntensity},
+	u_rayLength: {value: params.rayLength}
 };
 
 const {meshMat, pointsMat} = createMaterials(uniforms, vertexShader, fragmentShaderSimple, fragmentShaderPoints);
@@ -44,6 +60,15 @@ const {mesh, points} = createGeometry(params, meshMat, pointsMat);
 scene.add(mesh);
 scene.add(points);
 setWireframe(mesh, points, params.wireframe);
+
+const innerSphere = createInnerSphere(params, uniforms, innerGlowVertexShader, innerGlowFragmentShader);
+scene.add(innerSphere.mesh);
+
+const outerLayer = createOuterLayer(params, uniforms, rayVertexShader, rayFragmentShader);
+scene.add(outerLayer.outerMesh);
+scene.add(outerLayer.outerPoints);
+scene.add(outerLayer.rayLines);
+scene.add(outerLayer.rayCylinders);
 
 const listener = new THREE.AudioListener();
 camera.add(listener);
@@ -58,7 +83,16 @@ const gui = createGUI(params, uniforms, {
 	listener,
 	audio,
 	rebuildGeometry,
-	setWireframe
+	setWireframe,
+	innerSphere,
+	outerLayer,
+	rebuildOuterLayer: function() {
+		scene.remove(outerLayer.rayLines);
+		scene.remove(outerLayer.rayCylinders);
+		rebuildOuterLayer(outerLayer, params, uniforms, rayVertexShader, rayFragmentShader);
+		scene.add(outerLayer.rayLines);
+		scene.add(outerLayer.rayCylinders);
+	}
 });
 
 let mouseX = 0;
