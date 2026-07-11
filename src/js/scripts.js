@@ -210,8 +210,9 @@ mesh.material.wireframe = true;
 scene.add(mesh);
 
 const points = new THREE.Points(geo, pointsMat);
-points.visible = false;
 scene.add(points);
+
+setWireframe(params.wireframe);
 
 function rebuildGeometry(detail) {
 	mesh.geometry.dispose();
