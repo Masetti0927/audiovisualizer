@@ -157,9 +157,11 @@ const params = {
 	detail: 30,
 	wireframe: true,
 	pointSize: 3.0,
+	scale: 1.0,
 	sensitivity: 3,
 	smoothing: 0.5,
-	noiseSpeed: 1.0
+	noiseSpeed: 1.0,
+	systemPlaythrough: false
 }
 
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -286,6 +288,9 @@ function switchToSystemAudio() {
 		sound.stop();
 		sound.disconnect();
 		sound.setMediaStreamSource(stream);
+		if (!params.systemPlaythrough) {
+			sound.gain.disconnect();
+		}
 		currentSource = 'system';
 		isPlaying = false;
 	}).catch(function(err) {
@@ -308,6 +313,15 @@ function switchToBuiltinAudio() {
 	currentSource = 'builtin';
 }
 
+function toggleSystemPlaythrough(enabled) {
+	if (currentSource !== 'system') return;
+	if (enabled) {
+		sound.gain.connect(sound.context.destination);
+	} else {
+		sound.gain.disconnect();
+	}
+}
+
 let smoothedFrequency = 0;
 let elapsedTime = 0;
 let lastTime = performance.now();
@@ -318,6 +332,9 @@ const audioSourceFolder = gui.addFolder('Audio Source');
 audioSourceFolder.add({toggle: togglePlayback}, 'toggle').name('播放/暂停');
 audioSourceFolder.add({builtin: switchToBuiltinAudio}, 'builtin').name('内置音频');
 audioSourceFolder.add({system: switchToSystemAudio}, 'system').name('系统音频');
+audioSourceFolder.add(params, 'systemPlaythrough').name('系统音频播放').onChange(function(value) {
+	toggleSystemPlaythrough(value);
+});
 
 const geometryFolder = gui.addFolder('Geometry');
 geometryFolder.add(params, 'detail', 1, 50, 1).name('细分级别').onChange(function(value) {
@@ -328,6 +345,10 @@ geometryFolder.add(params, 'wireframe').name('线框显示').onChange(function(v
 });
 geometryFolder.add(params, 'pointSize', 1, 10, 0.5).name('点大小').onChange(function(value) {
 	uniforms.u_pointSize.value = value;
+});
+geometryFolder.add(params, 'scale', 0.5, 3, 0.1).name('缩放').onChange(function(value) {
+	mesh.scale.setScalar(value);
+	points.scale.setScalar(value);
 });
 
 const audioFolder = gui.addFolder('Audio');
