@@ -49,6 +49,7 @@ const listener = new THREE.AudioListener();
 camera.add(listener);
 
 const audio = createAudioSystem(listener, params);
+audio.loadBuiltin();
 
 const gui = createGUI(params, uniforms, {
 	mesh,
