@@ -28,11 +28,17 @@ const camera = createCamera();
 
 const {bloomComposer, bloomPass} = createBloom(renderer, scene, camera, params);
 
+const BASE_HEIGHT = 800;
+
+function getPointScaleFactor() {
+	return window.innerHeight / BASE_HEIGHT;
+}
+
 const uniforms = {
 	u_time: {value: 0.0},
 	u_frequency: {value: 0.0},
 	u_sensitivity: {value: params.sensitivity},
-	u_pointSize: {value: params.pointSize},
+	u_pointSize: {value: params.pointSize * getPointScaleFactor()},
 	u_red: {value: 1.0},
 	u_green: {value: 1.0},
 	u_blue: {value: 1.0}
@@ -58,7 +64,8 @@ const gui = createGUI(params, uniforms, {
 	listener,
 	audio,
 	rebuildGeometry,
-	setWireframe
+	setWireframe,
+	getPointScaleFactor
 });
 
 let mouseX = 0;
@@ -96,6 +103,7 @@ window.addEventListener('resize', function() {
 	camera.updateProjectionMatrix();
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	bloomComposer.setSize(window.innerWidth, window.innerHeight);
+	uniforms.u_pointSize.value = params.pointSize * getPointScaleFactor();
 });
 
 animate();

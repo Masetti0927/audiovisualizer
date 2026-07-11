@@ -4,7 +4,8 @@ import {hexToRgb, syncColorFromRgb} from './utils.js';
 export function createGUI(params, uniforms, deps) {
 	const {
 		mesh, points, bloomPass, listener,
-		audio, rebuildGeometry, setWireframe
+		audio, rebuildGeometry, setWireframe,
+		getPointScaleFactor
 	} = deps;
 
 	const gui = new GUI();
@@ -25,7 +26,7 @@ export function createGUI(params, uniforms, deps) {
 		setWireframe(mesh, points, value);
 	});
 	geometryFolder.add(params, 'pointSize', 1, 10, 0.5).name('点大小').onChange(function(value) {
-		uniforms.u_pointSize.value = value;
+		uniforms.u_pointSize.value = value * getPointScaleFactor();
 	});
 	geometryFolder.add(params, 'scale', 0.5, 3, 0.1).name('缩放').onChange(function(value) {
 		mesh.scale.setScalar(value);
