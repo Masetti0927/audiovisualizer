@@ -31,7 +31,7 @@ const params = {
 	outerColor: '#ff4488',
 	rayVisible: true,
 	rayLength: 2.0,
-	rayStyle: 'thin',
+	rayStyle: '细线',
 	rayThickness: 0.02
 };
 
