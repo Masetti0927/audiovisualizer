@@ -1,29 +1,34 @@
 import * as THREE from 'three';
-import {vertexShader, fragmentShaderSimple, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader, outerVertexShader, outerFragmentShader, outerWireframeFragmentShader, rayVertexShader, rayFragmentShader} from './shaders.js';
-import {createRenderer, createScene, createCamera, createBloom, createMaterials, createGeometry, rebuildGeometry, setWireframe, createInnerSphere, createOuterLayer, rebuildOuterLayer} from './scene.js';
+import {vertexShader, fragmentShader, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader, rayVertexShader, rayFragmentShader} from './shaders.js';
+import {createRenderer, createScene, createCamera, createBloom, createLayer, rebuildLayer, createInnerGlow, createRays, rebuildRays, createRotationState, updateRotation} from './scene.js';
 import {createAudioSystem} from './audio.js';
 import {createGUI} from './gui.js';
 
 const params = {
-	red: 1.0,
-	green: 1.0,
-	blue: 1.0,
-	color: '#ffffff',
-	threshold: 0.5,
-	strength: 0.1,
-	radius: 0.8,
-	detail: 30,
-	wireframe: true,
-	pointSize: 3.0,
-	scale: 1.0,
-	sensitivity: 3,
-	smoothing: 0.5,
-	noiseSpeed: 1.0,
-	systemPlaythrough: false,
-	innerGlowVisible: true,
-	innerGlowRadius: 3,
+	innerVisible: true,
+	innerRadius: 3,
+	innerDetail: 30,
+	innerWireframe: true,
+	innerPointSize: 3.0,
+	innerScale: 1.0,
+	innerColor: '#4488ff',
+	innerRed: 0.27,
+	innerGreen: 0.53,
+	innerBlue: 1.0,
+	innerGlow: true,
 	innerGlowIntensity: 1.0,
-	innerGlowColor: '#4488ff',
+
+	middleVisible: true,
+	middleRadius: 4,
+	middleDetail: 30,
+	middleWireframe: true,
+	middlePointSize: 3.0,
+	middleScale: 1.0,
+	middleColor: '#ffffff',
+	middleRed: 1.0,
+	middleGreen: 1.0,
+	middleBlue: 1.0,
+
 	outerVisible: true,
 	outerRadius: 5,
 	outerDetail: 30,
@@ -34,12 +39,24 @@ const params = {
 	outerRed: 1.0,
 	outerGreen: 0.27,
 	outerBlue: 0.53,
-	rayVisible: true,
-	rayLength: 2.0,
-	rayThreshold: 0.3,
-	rayStyle: '细线',
-	rayThickness: 0.02,
-	rotationSpeed: 0.5
+	outerRays: true,
+	outerRayLength: 2.0,
+	outerRayThreshold: 0.3,
+	outerRayStyle: '细线',
+	outerRayThickness: 0.02,
+
+	rotationSpeed: 0.5,
+	rotationInterval: 3,
+	rotationSmoothness: 0.5,
+
+	sensitivity: 3,
+	smoothing: 0.5,
+	noiseSpeed: 1.0,
+	systemPlaythrough: false,
+
+	threshold: 0.5,
+	strength: 0.1,
+	radius: 0.8
 };
 
 const renderer = createRenderer();
@@ -52,39 +69,46 @@ const uniforms = {
 	u_time: {value: 0.0},
 	u_frequency: {value: 0.0},
 	u_sensitivity: {value: params.sensitivity},
-	u_pointSize: {value: params.pointSize},
-	u_red: {value: 1.0},
-	u_green: {value: 1.0},
-	u_blue: {value: 1.0},
-	u_outerRed: {value: params.outerRed},
-	u_outerGreen: {value: params.outerGreen},
-	u_outerBlue: {value: params.outerBlue},
-	u_outerPointSize: {value: params.outerPointSize},
+	innerPointSize: {value: params.innerPointSize},
+	innerRed: {value: params.innerRed},
+	innerGreen: {value: params.innerGreen},
+	innerBlue: {value: params.innerBlue},
+	middlePointSize: {value: params.middlePointSize},
+	middleRed: {value: params.middleRed},
+	middleGreen: {value: params.middleGreen},
+	middleBlue: {value: params.middleBlue},
+	outerPointSize: {value: params.outerPointSize},
+	outerRed: {value: params.outerRed},
+	outerGreen: {value: params.outerGreen},
+	outerBlue: {value: params.outerBlue},
 	u_glowColor: {value: new THREE.Color(params.innerGlowColor)},
 	u_glowIntensity: {value: params.innerGlowIntensity},
-	u_rayLength: {value: params.rayLength},
-	u_rayThreshold: {value: params.rayThreshold}
+	u_rayLength: {value: params.outerRayLength},
+	u_rayThreshold: {value: params.outerRayThreshold}
 };
 
-const {meshMat, pointsMat} = createMaterials(uniforms, vertexShader, fragmentShaderSimple, fragmentShaderPoints);
+const innerLayer = createLayer(params, uniforms, 'inner', vertexShader, fragmentShader, fragmentShaderPoints);
+scene.add(innerLayer.mesh);
+scene.add(innerLayer.points);
 
-const {mesh, points} = createGeometry(params, meshMat, pointsMat);
-scene.add(mesh);
-scene.add(points);
-setWireframe(mesh, points, params.wireframe);
+const innerGlow = createInnerGlow(params, uniforms, innerGlowVertexShader, innerGlowFragmentShader);
+scene.add(innerGlow.mesh);
 
-const innerSphere = createInnerSphere(params, uniforms, innerGlowVertexShader, innerGlowFragmentShader);
-scene.add(innerSphere.mesh);
+const middleLayer = createLayer(params, uniforms, 'middle', vertexShader, fragmentShader, fragmentShaderPoints);
+scene.add(middleLayer.mesh);
+scene.add(middleLayer.points);
 
-const outerLayer = createOuterLayer(params, uniforms, outerVertexShader, outerWireframeFragmentShader, outerFragmentShader, rayVertexShader, rayFragmentShader);
-scene.add(outerLayer.outerMesh);
-scene.add(outerLayer.outerPoints);
-scene.add(outerLayer.rayLines);
-scene.add(outerLayer.rayCylinders);
+const outerLayer = createLayer(params, uniforms, 'outer', vertexShader, fragmentShader, fragmentShaderPoints);
+scene.add(outerLayer.mesh);
+scene.add(outerLayer.points);
 
-const innerRotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-const middleRotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-const outerRotationAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+const rays = createRays(params, uniforms, rayVertexShader, rayFragmentShader);
+scene.add(rays.rayLines);
+scene.add(rays.rayCylinders);
+
+const innerRotation = createRotationState();
+const middleRotation = createRotationState();
+const outerRotation = createRotationState();
 
 const listener = new THREE.AudioListener();
 camera.add(listener);
@@ -93,21 +117,21 @@ const audio = createAudioSystem(listener, params);
 audio.loadBuiltin();
 
 const gui = createGUI(params, uniforms, {
-	mesh,
-	points,
+	innerLayer,
+	middleLayer,
+	outerLayer,
+	innerGlow,
+	rays,
 	bloomPass,
 	listener,
 	audio,
-	rebuildGeometry,
-	setWireframe,
-	innerSphere,
-	outerLayer,
-	rebuildOuterLayer: function() {
-		scene.remove(outerLayer.rayLines);
-		scene.remove(outerLayer.rayCylinders);
-		rebuildOuterLayer(outerLayer, params, uniforms, rayVertexShader, rayFragmentShader);
-		scene.add(outerLayer.rayLines);
-		scene.add(outerLayer.rayCylinders);
+	rebuildLayer,
+	rebuildRays: function() {
+		scene.remove(rays.rayLines);
+		scene.remove(rays.rayCylinders);
+		rebuildRays(rays, params, uniforms, rayVertexShader, rayFragmentShader);
+		scene.add(rays.rayLines);
+		scene.add(rays.rayCylinders);
 	}
 });
 
@@ -137,14 +161,20 @@ function animate() {
 	uniforms.u_time.value = elapsedTime;
 	uniforms.u_frequency.value = audio.getFrequency();
 
-	const angle = delta * params.rotationSpeed;
-	mesh.rotateOnAxis(middleRotationAxis, angle);
-	points.rotateOnAxis(middleRotationAxis, angle);
-	outerLayer.outerMesh.rotateOnAxis(outerRotationAxis, angle);
-	outerLayer.outerPoints.rotateOnAxis(outerRotationAxis, angle);
-	outerLayer.rayLines.rotateOnAxis(outerRotationAxis, angle);
-	outerLayer.rayCylinders.rotateOnAxis(outerRotationAxis, angle);
-	innerSphere.mesh.rotateOnAxis(innerRotationAxis, angle);
+	const innerAngle = updateRotation(innerRotation, delta, params.rotationSpeed, params.rotationInterval, params.rotationSmoothness);
+	innerLayer.mesh.rotateOnAxis(innerRotation.currentAxis, innerAngle);
+	innerLayer.points.rotateOnAxis(innerRotation.currentAxis, innerAngle);
+	innerGlow.mesh.rotateOnAxis(innerRotation.currentAxis, innerAngle);
+
+	const middleAngle = updateRotation(middleRotation, delta, params.rotationSpeed, params.rotationInterval, params.rotationSmoothness);
+	middleLayer.mesh.rotateOnAxis(middleRotation.currentAxis, middleAngle);
+	middleLayer.points.rotateOnAxis(middleRotation.currentAxis, middleAngle);
+
+	const outerAngle = updateRotation(outerRotation, delta, params.rotationSpeed, params.rotationInterval, params.rotationSmoothness);
+	outerLayer.mesh.rotateOnAxis(outerRotation.currentAxis, outerAngle);
+	outerLayer.points.rotateOnAxis(outerRotation.currentAxis, outerAngle);
+	rays.rayLines.rotateOnAxis(outerRotation.currentAxis, outerAngle);
+	rays.rayCylinders.rotateOnAxis(outerRotation.currentAxis, outerAngle);
 
 	bloomComposer.render();
 	requestAnimationFrame(animate);

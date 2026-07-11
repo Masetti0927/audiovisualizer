@@ -46,46 +46,56 @@ export function createBloom(renderer, scene, camera, params) {
 	return {bloomComposer, bloomPass};
 }
 
-export function createMaterials(uniforms, vertexShader, fragmentShaderSimple, fragmentShaderPoints) {
+export function createLayer(params, uniforms, prefix, vertexShader, fragmentShader, fragmentShaderPoints) {
+	const radius = params[prefix + 'Radius'];
+	const detail = params[prefix + 'Detail'];
+
+	const geo = new THREE.IcosahedronGeometry(radius, detail);
+
+	const layerUniforms = {
+		u_time: uniforms.u_time,
+		u_frequency: uniforms.u_frequency,
+		u_sensitivity: uniforms.u_sensitivity,
+		u_pointSize: uniforms[prefix + 'PointSize'],
+		u_red: uniforms[prefix + 'Red'],
+		u_green: uniforms[prefix + 'Green'],
+		u_blue: uniforms[prefix + 'Blue']
+	};
+
 	const meshMat = new THREE.ShaderMaterial({
-		uniforms,
+		uniforms: layerUniforms,
 		vertexShader,
-		fragmentShader: fragmentShaderSimple
+		fragmentShader,
+		wireframe: true
 	});
 
 	const pointsMat = new THREE.ShaderMaterial({
-		uniforms,
+		uniforms: layerUniforms,
 		vertexShader,
 		fragmentShader: fragmentShaderPoints
 	});
 
-	return {meshMat, pointsMat};
-}
-
-export function createGeometry(params, meshMat, pointsMat) {
-	const geo = new THREE.IcosahedronGeometry(4, params.detail);
-
 	const mesh = new THREE.Mesh(geo, meshMat);
-	mesh.material.wireframe = true;
-
 	const points = new THREE.Points(geo, pointsMat);
 
-	return {mesh, points, geo};
+	mesh.visible = params[prefix + 'Visible'] && params[prefix + 'Wireframe'];
+	points.visible = params[prefix + 'Visible'];
+
+	return {mesh, points, geo, meshMat, pointsMat};
 }
 
-export function rebuildGeometry(mesh, points, detail) {
-	mesh.geometry.dispose();
-	mesh.geometry = new THREE.IcosahedronGeometry(4, detail);
-	points.geometry = mesh.geometry;
+export function rebuildLayer(layer, params, prefix) {
+	layer.mesh.geometry.dispose();
+	layer.mesh.geometry = new THREE.IcosahedronGeometry(
+		params[prefix + 'Radius'],
+		params[prefix + 'Detail']
+	);
+	layer.points.geometry = layer.mesh.geometry;
+	layer.geo = layer.mesh.geometry;
 }
 
-export function setWireframe(mesh, points, enabled) {
-	mesh.visible = enabled;
-	points.visible = true;
-}
-
-export function createInnerSphere(params, uniforms, innerGlowVertexShader, innerGlowFragmentShader) {
-	const geo = new THREE.SphereGeometry(params.innerGlowRadius, 32, 32);
+export function createInnerGlow(params, uniforms, innerGlowVertexShader, innerGlowFragmentShader) {
+	const geo = new THREE.SphereGeometry(params.innerRadius * 0.95, 32, 32);
 	const mat = new THREE.ShaderMaterial({
 		uniforms: {
 			u_glowColor: uniforms.u_glowColor,
@@ -99,57 +109,17 @@ export function createInnerSphere(params, uniforms, innerGlowVertexShader, inner
 		blending: THREE.AdditiveBlending
 	});
 	const mesh = new THREE.Mesh(geo, mat);
-	mesh.visible = params.innerGlowVisible;
+	mesh.visible = params.innerGlow;
 	return {mesh, mat};
 }
 
-export function createOuterLayer(params, uniforms, outerVertexShader, outerWireframeFragmentShader, outerFragmentShader, rayVertexShader, rayFragmentShader) {
-	const outerGeo = new THREE.IcosahedronGeometry(params.outerRadius, params.outerDetail);
-
-	const outerUniforms = {
-		u_time: uniforms.u_time,
-		u_frequency: uniforms.u_frequency,
-		u_sensitivity: uniforms.u_sensitivity,
-		u_outerPointSize: uniforms.u_outerPointSize,
-		u_outerRed: uniforms.u_outerRed,
-		u_outerGreen: uniforms.u_outerGreen,
-		u_outerBlue: uniforms.u_outerBlue
-	};
-
-	const outerMeshMat = new THREE.ShaderMaterial({
-		uniforms: outerUniforms,
-		vertexShader: outerVertexShader,
-		fragmentShader: outerWireframeFragmentShader,
-		wireframe: true
-	});
-	const outerMesh = new THREE.Mesh(outerGeo, outerMeshMat);
-	outerMesh.visible = params.outerVisible && params.outerWireframe;
-
-	const outerPointsMat = new THREE.ShaderMaterial({
-		uniforms: outerUniforms,
-		vertexShader: outerVertexShader,
-		fragmentShader: outerFragmentShader
-	});
-	const outerPoints = new THREE.Points(outerGeo, outerPointsMat);
-	outerPoints.visible = params.outerVisible;
-
-	const {rayLines, rayCylinders} = buildRayGeometry(outerGeo, uniforms, rayVertexShader, rayFragmentShader, params);
-
-	return {
-		outerMesh, outerPoints, outerGeo,
-		outerMeshMat, outerPointsMat,
-		rayLines, rayCylinders
-	};
-}
-
-function buildRayGeometry(geo, uniforms, rayVertexShader, rayFragmentShader, params) {
+export function createRays(params, uniforms, rayVertexShader, rayFragmentShader) {
+	const geo = new THREE.IcosahedronGeometry(params.outerRadius, params.outerDetail);
 	const positions = geo.attributes.position.array;
 	const normals = geo.attributes.normal.array;
 	const vertexCount = positions.length / 3;
 
 	const rayPositions = [];
-	const rayNormals = [];
-	const rayTips = [];
 	const rayDirs = [];
 
 	for (let i = 0; i < vertexCount; i++) {
@@ -161,26 +131,23 @@ function buildRayGeometry(geo, uniforms, rayVertexShader, rayFragmentShader, par
 		const nz = normals[i * 3 + 2];
 
 		rayPositions.push(px, py, pz);
-		rayNormals.push(nx, ny, nz);
-		rayTips.push(0.0);
 		rayDirs.push(nx, ny, nz);
 
 		rayPositions.push(px, py, pz);
-		rayNormals.push(nx, ny, nz);
-		rayTips.push(1.0);
 		rayDirs.push(nx, ny, nz);
 	}
 
 	const rayGeo = new THREE.BufferGeometry();
 	rayGeo.setAttribute('position', new THREE.Float32BufferAttribute(rayPositions, 3));
-	rayGeo.setAttribute('normal', new THREE.Float32BufferAttribute(rayNormals, 3));
-	rayGeo.setAttribute('a_isTip', new THREE.Float32BufferAttribute(rayTips, 1));
+	rayGeo.setAttribute('a_isTip', new THREE.Float32BufferAttribute(
+		new Float32Array(vertexCount * 2).fill(0).map((_, i) => i % 2 === 1 ? 1.0 : 0.0), 1
+	));
 	rayGeo.setAttribute('a_rayDir', new THREE.Float32BufferAttribute(rayDirs, 3));
 
 	const rayUniforms = {
-		u_outerRed: uniforms.u_outerRed,
-		u_outerGreen: uniforms.u_outerGreen,
-		u_outerBlue: uniforms.u_outerBlue,
+		u_red: uniforms[prefix + 'Red'] || uniforms.u_outerRed,
+		u_green: uniforms[prefix + 'Green'] || uniforms.u_outerGreen,
+		u_blue: uniforms[prefix + 'Blue'] || uniforms.u_outerBlue,
 		u_time: uniforms.u_time,
 		u_frequency: uniforms.u_frequency,
 		u_sensitivity: uniforms.u_sensitivity,
@@ -196,20 +163,20 @@ function buildRayGeometry(geo, uniforms, rayVertexShader, rayFragmentShader, par
 	});
 
 	const rayLines = new THREE.LineSegments(rayGeo, rayMat);
-	rayLines.visible = params.rayVisible && params.rayStyle === '细线';
+	rayLines.visible = params.outerRays && params.outerRayStyle === '细线';
 
-	const rayCylinders = createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, params);
-	rayCylinders.visible = params.rayVisible && params.rayStyle === '粗线';
+	const rayCylinders = createThickRays(geo, rayUniforms, rayVertexShader, rayFragmentShader, params);
+	rayCylinders.visible = params.outerRays && params.outerRayStyle === '粗线';
 
-	return {rayLines, rayCylinders};
+	return {rayLines, rayCylinders, rayGeo};
 }
 
-function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, params) {
+function createThickRays(geo, rayUniforms, rayVertexShader, rayFragmentShader, params) {
 	const positions = geo.attributes.position.array;
 	const normals = geo.attributes.normal.array;
 	const vertexCount = positions.length / 3;
 
-	const cylinderGeo = new THREE.CylinderGeometry(params.rayThickness, params.rayThickness, 1, 6);
+	const cylinderGeo = new THREE.CylinderGeometry(params.outerRayThickness, params.outerRayThickness, 1, 6);
 	cylinderGeo.translate(0, 0.5, 0);
 	cylinderGeo.rotateX(Math.PI / 2);
 
@@ -309,14 +276,14 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 	`;
 
 	const thickRayUniforms = {
-		u_outerRed: uniforms.u_outerRed,
-		u_outerGreen: uniforms.u_outerGreen,
-		u_outerBlue: uniforms.u_outerBlue,
-		u_time: uniforms.u_time,
-		u_frequency: uniforms.u_frequency,
-		u_sensitivity: uniforms.u_sensitivity,
-		u_rayLength: uniforms.u_rayLength,
-		u_rayThreshold: uniforms.u_rayThreshold
+		u_red: rayUniforms.u_red,
+		u_green: rayUniforms.u_green,
+		u_blue: rayUniforms.u_blue,
+		u_time: rayUniforms.u_time,
+		u_frequency: rayUniforms.u_frequency,
+		u_sensitivity: rayUniforms.u_sensitivity,
+		u_rayLength: rayUniforms.u_rayLength,
+		u_rayThreshold: rayUniforms.u_rayThreshold
 	};
 
 	const thickRayMat = new THREE.ShaderMaterial({
@@ -329,16 +296,41 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 	return new THREE.Mesh(instancedGeo, thickRayMat);
 }
 
-export function rebuildOuterLayer(outerLayer, params, uniforms, rayVertexShader, rayFragmentShader) {
-	outerLayer.outerMesh.geometry.dispose();
-	outerLayer.outerMesh.geometry = new THREE.IcosahedronGeometry(params.outerRadius, params.outerDetail);
-	outerLayer.outerPoints.geometry = outerLayer.outerMesh.geometry;
-	outerLayer.outerGeo = outerLayer.outerMesh.geometry;
+export function rebuildRays(rayLayer, params, uniforms, rayVertexShader, rayFragmentShader) {
+	rayLayer.rayLines.geometry.dispose();
+	rayLayer.rayCylinders.geometry.dispose();
 
-	outerLayer.rayLines.geometry.dispose();
-	outerLayer.rayCylinders.geometry.dispose();
+	const newRays = createRays(params, uniforms, rayVertexShader, rayFragmentShader);
+	rayLayer.rayLines = newRays.rayLines;
+	rayLayer.rayCylinders = newRays.rayCylinders;
+	rayLayer.rayGeo = newRays.rayGeo;
+}
 
-	const {rayLines, rayCylinders} = buildRayGeometry(outerLayer.outerGeo, uniforms, rayVertexShader, rayFragmentShader, params);
-	outerLayer.rayLines = rayLines;
-	outerLayer.rayCylinders = rayCylinders;
+export function createRotationState() {
+	return {
+		currentAxis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+		targetAxis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+		currentSpeed: (Math.random() - 0.5) * 2,
+		targetSpeed: (Math.random() - 0.5) * 2,
+		timer: Math.random() * 3 + 1
+	};
+}
+
+export function updateRotation(state, delta, baseSpeed, interval, smoothness) {
+	state.timer -= delta;
+	if (state.timer <= 0) {
+		state.targetAxis.set(
+			Math.random() - 0.5,
+			Math.random() - 0.5,
+			Math.random() - 0.5
+		).normalize();
+		state.targetSpeed = (Math.random() - 0.5) * 2 * baseSpeed;
+		state.timer = interval + Math.random() * 2;
+	}
+
+	state.currentAxis.lerp(state.targetAxis, delta * smoothness * 2);
+	state.currentAxis.normalize();
+	state.currentSpeed += (state.targetSpeed - state.currentSpeed) * delta * smoothness * 2;
+
+	return state.currentSpeed * delta;
 }
