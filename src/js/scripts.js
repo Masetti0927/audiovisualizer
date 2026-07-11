@@ -308,6 +308,8 @@ function switchToBuiltinAudio() {
 	sound.disconnect();
 	if (builtinBuffer) {
 		sound.setBuffer(builtinBuffer);
+		sound.hasPlaybackControl = true;
+		sound.gain.connect(listener.gain);
 		sound.play();
 		isPlaying = true;
 	}
