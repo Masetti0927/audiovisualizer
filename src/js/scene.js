@@ -145,9 +145,9 @@ export function createRays(params, uniforms, rayVertexShader, rayFragmentShader)
 	rayGeo.setAttribute('a_rayDir', new THREE.Float32BufferAttribute(rayDirs, 3));
 
 	const rayUniforms = {
-		u_red: uniforms[prefix + 'Red'] || uniforms.u_outerRed,
-		u_green: uniforms[prefix + 'Green'] || uniforms.u_outerGreen,
-		u_blue: uniforms[prefix + 'Blue'] || uniforms.u_outerBlue,
+		u_red: uniforms.outerRed,
+		u_green: uniforms.outerGreen,
+		u_blue: uniforms.outerBlue,
 		u_time: uniforms.u_time,
 		u_frequency: uniforms.u_frequency,
 		u_sensitivity: uniforms.u_sensitivity,
