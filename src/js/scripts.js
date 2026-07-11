@@ -288,8 +288,9 @@ function switchToSystemAudio() {
 		sound.stop();
 		sound.disconnect();
 		sound.setMediaStreamSource(stream);
+		sound.context.resume();
 		if (!params.systemPlaythrough) {
-			sound.gain.disconnect(sound.context.destination);
+			sound.gain.disconnect(listener.gain);
 		}
 		currentSource = 'system';
 		isPlaying = false;
@@ -316,9 +317,9 @@ function switchToBuiltinAudio() {
 function toggleSystemPlaythrough(enabled) {
 	if (currentSource !== 'system') return;
 	if (enabled) {
-		sound.gain.connect(sound.context.destination);
+		sound.gain.connect(listener.gain);
 	} else {
-		sound.gain.disconnect(sound.context.destination);
+		sound.gain.disconnect(listener.gain);
 	}
 }
 
