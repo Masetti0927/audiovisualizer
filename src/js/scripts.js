@@ -32,15 +32,14 @@ const vertexShader = `
     return t*t*t*(t*(t*6.0-15.0)+10.0);
   }
 
-  // Classic Perlin noise, periodic variant
   float pnoise(vec3 P, vec3 rep)
   {
-    vec3 Pi0 = mod(floor(P), rep); // Integer part, modulo period
-    vec3 Pi1 = mod(Pi0 + vec3(1.0), rep); // Integer part + 1, mod period
+    vec3 Pi0 = mod(floor(P), rep);
+    vec3 Pi1 = mod(Pi0 + vec3(1.0), rep);
     Pi0 = mod289(Pi0);
     Pi1 = mod289(Pi1);
-    vec3 Pf0 = fract(P); // Fractional part for interpolation
-    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0
+    vec3 Pf0 = fract(P);
+    vec3 Pf1 = Pf0 - vec3(1.0);
     vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
     vec4 iy = vec4(Pi0.yy, Pi1.yy);
     vec4 iz0 = Pi0.zzzz;
@@ -104,12 +103,14 @@ const vertexShader = `
 
   uniform float u_frequency;
   uniform float u_sensitivity;
+  uniform float u_pointSize;
 
   void main() {
       float noise = 3.0 * pnoise(position + u_time, vec3(10.0));
       float displacement = (u_frequency * u_sensitivity / 100.) * (noise / 10.);
       vec3 newPosition = position + normal * displacement;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+      gl_PointSize = u_pointSize;
   }
 `;
 
@@ -118,6 +119,8 @@ const fragmentShader = `
   uniform float u_blue;
   uniform float u_green;
   void main() {
+      float dist = length(gl_PointCoord - vec2(0.5));
+      if (dist > 0.5) discard;
       gl_FragColor = vec4(vec3(u_red, u_green, u_blue), 1. );
   }
 `;
@@ -143,6 +146,7 @@ const params = {
 	radius: 0.8,
 	detail: 30,
 	wireframe: true,
+	pointSize: 3.0,
 	sensitivity: 50,
 	smoothing: 0.5,
 	noiseSpeed: 1.0
@@ -171,6 +175,7 @@ const uniforms = {
 	u_time: {value: 0.0},
 	u_frequency: {value: 0.0},
 	u_sensitivity: {value: params.sensitivity},
+	u_pointSize: {value: params.pointSize},
 	u_red: {value: 1.0},
 	u_green: {value: 1.0},
 	u_blue: {value: 1.0}
@@ -183,9 +188,25 @@ const mat = new THREE.ShaderMaterial({
 });
 
 const geo = new THREE.IcosahedronGeometry(4, params.detail);
+
 const mesh = new THREE.Mesh(geo, mat);
+mesh.material.wireframe = true;
 scene.add(mesh);
-mesh.material.wireframe = params.wireframe;
+
+const points = new THREE.Points(geo, mat);
+points.visible = false;
+scene.add(points);
+
+function rebuildGeometry(detail) {
+	mesh.geometry.dispose();
+	mesh.geometry = new THREE.IcosahedronGeometry(4, detail);
+	points.geometry = mesh.geometry;
+}
+
+function setWireframe(enabled) {
+	mesh.visible = enabled;
+	points.visible = !enabled;
+}
 
 const listener = new THREE.AudioListener();
 camera.add(listener);
@@ -210,41 +231,43 @@ const gui = new GUI();
 
 const geometryFolder = gui.addFolder('Geometry');
 geometryFolder.add(params, 'detail', 1, 50, 1).name('细分级别').onChange(function(value) {
-	mesh.geometry.dispose();
-	mesh.geometry = new THREE.IcosahedronGeometry(4, value);
+	rebuildGeometry(value);
 });
 geometryFolder.add(params, 'wireframe').name('线框显示').onChange(function(value) {
-	mesh.material.wireframe = value;
+	setWireframe(value);
+});
+geometryFolder.add(params, 'pointSize', 1, 10, 0.5).name('点大小').onChange(function(value) {
+	uniforms.u_pointSize.value = value;
 });
 
 const audioFolder = gui.addFolder('Audio');
-audioFolder.add(params, 'sensitivity', 0, 100).name('灵敏度').onChange(function(value) {
+audioFolder.add(params, 'sensitivity', 0, 100, 1).name('灵敏度').onChange(function(value) {
 	uniforms.u_sensitivity.value = value;
 });
-audioFolder.add(params, 'smoothing', 0, 0.99).name('平滑度');
+audioFolder.add(params, 'smoothing', 0, 0.95, 0.01).name('平滑度');
 
 const noiseFolder = gui.addFolder('Noise');
-noiseFolder.add(params, 'noiseSpeed', 0, 5).name('速度');
+noiseFolder.add(params, 'noiseSpeed', 0, 3, 0.1).name('速度');
 
 const colorsFolder = gui.addFolder('Colors');
-colorsFolder.add(params, 'red', 0, 1).onChange(function(value) {
+colorsFolder.add(params, 'red', 0, 1, 0.01).onChange(function(value) {
 	uniforms.u_red.value = Number(value);
 });
-colorsFolder.add(params, 'green', 0, 1).onChange(function(value) {
+colorsFolder.add(params, 'green', 0, 1, 0.01).onChange(function(value) {
 	uniforms.u_green.value = Number(value);
 });
-colorsFolder.add(params, 'blue', 0, 1).onChange(function(value) {
+colorsFolder.add(params, 'blue', 0, 1, 0.01).onChange(function(value) {
 	uniforms.u_blue.value = Number(value);
 });
 
 const bloomFolder = gui.addFolder('Bloom');
-bloomFolder.add(params, 'threshold', 0, 1).onChange(function(value) {
+bloomFolder.add(params, 'threshold', 0, 1, 0.01).onChange(function(value) {
 	bloomPass.threshold = Number(value);
 });
-bloomFolder.add(params, 'strength', 0, 3).onChange(function(value) {
+bloomFolder.add(params, 'strength', 0, 2, 0.01).onChange(function(value) {
 	bloomPass.strength = Number(value);
 });
-bloomFolder.add(params, 'radius', 0, 1).onChange(function(value) {
+bloomFolder.add(params, 'radius', 0, 1, 0.01).onChange(function(value) {
 	bloomPass.radius = Number(value);
 });
 
