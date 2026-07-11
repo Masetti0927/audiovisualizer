@@ -114,7 +114,16 @@ const vertexShader = `
   }
 `;
 
-const fragmentShader = `
+const fragmentShaderSimple = `
+  uniform float u_red;
+  uniform float u_blue;
+  uniform float u_green;
+  void main() {
+      gl_FragColor = vec4(vec3(u_red, u_green, u_blue), 1. );
+  }
+`;
+
+const fragmentShaderPoints = `
   uniform float u_red;
   uniform float u_blue;
   uniform float u_green;
@@ -181,19 +190,25 @@ const uniforms = {
 	u_blue: {value: 1.0}
 }
 
-const mat = new THREE.ShaderMaterial({
+const meshMat = new THREE.ShaderMaterial({
 	uniforms,
 	vertexShader,
-	fragmentShader
+	fragmentShader: fragmentShaderSimple
+});
+
+const pointsMat = new THREE.ShaderMaterial({
+	uniforms,
+	vertexShader,
+	fragmentShader: fragmentShaderPoints
 });
 
 const geo = new THREE.IcosahedronGeometry(4, params.detail);
 
-const mesh = new THREE.Mesh(geo, mat);
+const mesh = new THREE.Mesh(geo, meshMat);
 mesh.material.wireframe = true;
 scene.add(mesh);
 
-const points = new THREE.Points(geo, mat);
+const points = new THREE.Points(geo, pointsMat);
 points.visible = false;
 scene.add(points);
 
