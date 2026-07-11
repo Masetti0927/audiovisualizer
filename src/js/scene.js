@@ -103,22 +103,32 @@ export function createInnerSphere(params, uniforms, innerGlowVertexShader, inner
 	return {mesh, mat};
 }
 
-export function createOuterLayer(params, uniforms, rayVertexShader, rayFragmentShader) {
+export function createOuterLayer(params, uniforms, outerVertexShader, outerWireframeFragmentShader, outerFragmentShader, rayVertexShader, rayFragmentShader) {
 	const outerGeo = new THREE.IcosahedronGeometry(params.outerRadius, params.outerDetail);
 
+	const outerUniforms = {
+		u_time: uniforms.u_time,
+		u_frequency: uniforms.u_frequency,
+		u_sensitivity: uniforms.u_sensitivity,
+		u_outerPointSize: uniforms.u_outerPointSize,
+		u_outerRed: uniforms.u_outerRed,
+		u_outerGreen: uniforms.u_outerGreen,
+		u_outerBlue: uniforms.u_outerBlue
+	};
+
 	const outerMeshMat = new THREE.ShaderMaterial({
-		uniforms,
-		vertexShader: rayVertexShader,
-		fragmentShader: rayFragmentShader,
+		uniforms: outerUniforms,
+		vertexShader: outerVertexShader,
+		fragmentShader: outerWireframeFragmentShader,
 		wireframe: true
 	});
 	const outerMesh = new THREE.Mesh(outerGeo, outerMeshMat);
 	outerMesh.visible = params.outerVisible && params.outerWireframe;
 
 	const outerPointsMat = new THREE.ShaderMaterial({
-		uniforms,
-		vertexShader: rayVertexShader,
-		fragmentShader: rayFragmentShader
+		uniforms: outerUniforms,
+		vertexShader: outerVertexShader,
+		fragmentShader: outerFragmentShader
 	});
 	const outerPoints = new THREE.Points(outerGeo, outerPointsMat);
 	outerPoints.visible = params.outerVisible;
@@ -168,13 +178,14 @@ function buildRayGeometry(geo, uniforms, rayVertexShader, rayFragmentShader, par
 	rayGeo.setAttribute('a_rayDir', new THREE.Float32BufferAttribute(rayDirs, 3));
 
 	const rayUniforms = {
-		u_red: uniforms.u_red,
-		u_green: uniforms.u_green,
-		u_blue: uniforms.u_blue,
+		u_outerRed: uniforms.u_outerRed,
+		u_outerGreen: uniforms.u_outerGreen,
+		u_outerBlue: uniforms.u_outerBlue,
 		u_time: uniforms.u_time,
 		u_frequency: uniforms.u_frequency,
 		u_sensitivity: uniforms.u_sensitivity,
-		u_rayLength: uniforms.u_rayLength
+		u_rayLength: uniforms.u_rayLength,
+		u_rayThreshold: uniforms.u_rayThreshold
 	};
 
 	const rayMat = new THREE.ShaderMaterial({
@@ -229,6 +240,7 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 		uniform float u_frequency;
 		uniform float u_sensitivity;
 		uniform float u_rayLength;
+		uniform float u_rayThreshold;
 		varying vec3 vNormal;
 
 		vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -278,26 +290,18 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 		}
 
 		void main() {
-			float noise = pnoise(a_offset + u_time, vec3(10.0));
-			float len = u_frequency * u_sensitivity * u_rayLength / 100.0;
-			len *= (noise + 1.0) / 2.0;
-			len = max(len, 0.01);
+			float noise = 3.0 * pnoise(a_offset + u_time, vec3(10.0));
+			float displacement = (u_frequency * u_sensitivity / 100.) * (noise / 10.);
+			float activated = step(u_rayThreshold, abs(displacement));
+			float len = displacement * u_rayLength * 10.0 * activated;
+			len = max(len, 0.001);
 			vec3 dir = normalize(a_direction);
-			vec3 up = vec3(0.0, 0.0, 1.0);
-			vec3 axis = normalize(cross(up, dir));
-			float angle = acos(clamp(dot(up, dir), -1.0, 1.0));
-			mat3 rot = mat3(
-				cos(angle) + axis.x*axis.x*(1.0-cos(angle)),
-				axis.x*axis.y*(1.0-cos(angle)) - axis.z*sin(angle),
-				axis.x*axis.z*(1.0-cos(angle)) + axis.y*sin(angle),
-				axis.y*axis.x*(1.0-cos(angle)) + axis.z*sin(angle),
-				cos(angle) + axis.y*axis.y*(1.0-cos(angle)),
-				axis.y*axis.z*(1.0-cos(angle)) - axis.x*sin(angle),
-				axis.z*axis.x*(1.0-cos(angle)) - axis.y*sin(angle),
-				axis.z*axis.y*(1.0-cos(angle)) + axis.x*sin(angle),
-				cos(angle) + axis.z*axis.z*(1.0-cos(angle))
-			);
-			vec3 scaledPos = position * vec3(1.0, 1.0, len);
+			vec3 up = vec3(0.0, 1.0, 0.0);
+			if (abs(dot(dir, up)) > 0.99) up = vec3(1.0, 0.0, 0.0);
+			vec3 right = normalize(cross(up, dir));
+			up = cross(dir, right);
+			mat3 rot = mat3(right, dir, up);
+			vec3 scaledPos = position * vec3(1.0, len, 1.0);
 			vec3 worldPos = rot * scaledPos + a_offset;
 			vNormal = normalize(normalMatrix * normal);
 			gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
@@ -305,13 +309,14 @@ function createThickRays(geo, uniforms, rayVertexShader, rayFragmentShader, para
 	`;
 
 	const thickRayUniforms = {
-		u_red: uniforms.u_red,
-		u_green: uniforms.u_green,
-		u_blue: uniforms.u_blue,
+		u_outerRed: uniforms.u_outerRed,
+		u_outerGreen: uniforms.u_outerGreen,
+		u_outerBlue: uniforms.u_outerBlue,
 		u_time: uniforms.u_time,
 		u_frequency: uniforms.u_frequency,
 		u_sensitivity: uniforms.u_sensitivity,
-		u_rayLength: uniforms.u_rayLength
+		u_rayLength: uniforms.u_rayLength,
+		u_rayThreshold: uniforms.u_rayThreshold
 	};
 
 	const thickRayMat = new THREE.ShaderMaterial({

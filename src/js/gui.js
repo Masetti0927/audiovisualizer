@@ -83,14 +83,44 @@ export function createGUI(params, uniforms, deps) {
 	outerFolder.add(params, 'outerWireframe').name('外层线框').onChange(function(value) {
 		outerLayer.outerMesh.visible = params.outerVisible && value;
 	});
+	outerFolder.add(params, 'outerPointSize', 1, 10, 0.5).name('外层点大小').onChange(function(value) {
+		uniforms.u_outerPointSize.value = value;
+	});
+	outerFolder.add(params, 'outerScale', 0.5, 3, 0.1).name('外层缩放').onChange(function(value) {
+		outerLayer.outerMesh.scale.setScalar(value);
+		outerLayer.outerPoints.scale.setScalar(value);
+		outerLayer.rayLines.scale.setScalar(value);
+		outerLayer.rayCylinders.scale.setScalar(value);
+	});
 	outerFolder.addColor(params, 'outerColor').name('外层颜色').onChange(function(value) {
 		const rgb = hexToRgb(value);
-		outerLayer.outerMeshMat.uniforms.u_red.value = rgb.r;
-		outerLayer.outerMeshMat.uniforms.u_green.value = rgb.g;
-		outerLayer.outerMeshMat.uniforms.u_blue.value = rgb.b;
-		outerLayer.outerPointsMat.uniforms.u_red.value = rgb.r;
-		outerLayer.outerPointsMat.uniforms.u_green.value = rgb.g;
-		outerLayer.outerPointsMat.uniforms.u_blue.value = rgb.b;
+		params.outerRed = rgb.r;
+		params.outerGreen = rgb.g;
+		params.outerBlue = rgb.b;
+		uniforms.u_outerRed.value = rgb.r;
+		uniforms.u_outerGreen.value = rgb.g;
+		uniforms.u_outerBlue.value = rgb.b;
+	});
+	outerFolder.add(params, 'outerRed', 0, 1, 0.01).name('外层红').onChange(function() {
+		uniforms.u_outerRed.value = params.outerRed;
+		params.outerColor = '#' + [params.outerRed, params.outerGreen, params.outerBlue].map(function(v) {
+			return Math.round(v * 255).toString(16).padStart(2, '0');
+		}).join('');
+		gui.updateDisplay();
+	});
+	outerFolder.add(params, 'outerGreen', 0, 1, 0.01).name('外层绿').onChange(function() {
+		uniforms.u_outerGreen.value = params.outerGreen;
+		params.outerColor = '#' + [params.outerRed, params.outerGreen, params.outerBlue].map(function(v) {
+			return Math.round(v * 255).toString(16).padStart(2, '0');
+		}).join('');
+		gui.updateDisplay();
+	});
+	outerFolder.add(params, 'outerBlue', 0, 1, 0.01).name('外层蓝').onChange(function() {
+		uniforms.u_outerBlue.value = params.outerBlue;
+		params.outerColor = '#' + [params.outerRed, params.outerGreen, params.outerBlue].map(function(v) {
+			return Math.round(v * 255).toString(16).padStart(2, '0');
+		}).join('');
+		gui.updateDisplay();
 	});
 	outerFolder.add(params, 'rayVisible').name('射线显示').onChange(function(value) {
 		outerLayer.rayLines.visible = params.outerVisible && value && params.rayStyle === '细线';
@@ -98,6 +128,9 @@ export function createGUI(params, uniforms, deps) {
 	});
 	outerFolder.add(params, 'rayLength', 0, 10, 0.1).name('射线长度').onChange(function(value) {
 		uniforms.u_rayLength.value = value;
+	});
+	outerFolder.add(params, 'rayThreshold', 0, 1, 0.01).name('射线阈值').onChange(function(value) {
+		uniforms.u_rayThreshold.value = value;
 	});
 	outerFolder.add(params, 'rayStyle', ['细线', '粗线']).name('射线样式').onChange(function(value) {
 		const isThin = value === '细线';

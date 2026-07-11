@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {vertexShader, fragmentShaderSimple, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader, rayVertexShader, rayFragmentShader} from './shaders.js';
+import {vertexShader, fragmentShaderSimple, fragmentShaderPoints, innerGlowVertexShader, innerGlowFragmentShader, outerVertexShader, outerFragmentShader, outerWireframeFragmentShader, rayVertexShader, rayFragmentShader} from './shaders.js';
 import {createRenderer, createScene, createCamera, createBloom, createMaterials, createGeometry, rebuildGeometry, setWireframe, createInnerSphere, createOuterLayer, rebuildOuterLayer} from './scene.js';
 import {createAudioSystem} from './audio.js';
 import {createGUI} from './gui.js';
@@ -28,9 +28,15 @@ const params = {
 	outerRadius: 5,
 	outerDetail: 30,
 	outerWireframe: true,
+	outerPointSize: 3.0,
+	outerScale: 1.0,
 	outerColor: '#ff4488',
+	outerRed: 1.0,
+	outerGreen: 0.27,
+	outerBlue: 0.53,
 	rayVisible: true,
 	rayLength: 2.0,
+	rayThreshold: 0.3,
 	rayStyle: '细线',
 	rayThickness: 0.02
 };
@@ -49,9 +55,14 @@ const uniforms = {
 	u_red: {value: 1.0},
 	u_green: {value: 1.0},
 	u_blue: {value: 1.0},
+	u_outerRed: {value: params.outerRed},
+	u_outerGreen: {value: params.outerGreen},
+	u_outerBlue: {value: params.outerBlue},
+	u_outerPointSize: {value: params.outerPointSize},
 	u_glowColor: {value: new THREE.Color(params.innerGlowColor)},
 	u_glowIntensity: {value: params.innerGlowIntensity},
-	u_rayLength: {value: params.rayLength}
+	u_rayLength: {value: params.rayLength},
+	u_rayThreshold: {value: params.rayThreshold}
 };
 
 const {meshMat, pointsMat} = createMaterials(uniforms, vertexShader, fragmentShaderSimple, fragmentShaderPoints);
@@ -64,7 +75,7 @@ setWireframe(mesh, points, params.wireframe);
 const innerSphere = createInnerSphere(params, uniforms, innerGlowVertexShader, innerGlowFragmentShader);
 scene.add(innerSphere.mesh);
 
-const outerLayer = createOuterLayer(params, uniforms, rayVertexShader, rayFragmentShader);
+const outerLayer = createOuterLayer(params, uniforms, outerVertexShader, outerWireframeFragmentShader, outerFragmentShader, rayVertexShader, rayFragmentShader);
 scene.add(outerLayer.outerMesh);
 scene.add(outerLayer.outerPoints);
 scene.add(outerLayer.rayLines);
